@@ -1,7 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 use std::fmt::Arguments;
 use crate::scanner::Token;
-use crate::scanner::TokenType::Var;
 
 enum LiteralValue {
     None,
@@ -334,8 +333,221 @@ pub enum StmtKind{
 
 pub type StmtNode = Option<Rc<RefCell<StmtKind>>>;
 
-pub trait Stmt {
-    fn visit_block_stmt(stmt: )
+pub trait StmtVisitor<T> {
+    fn visit_block_stmt(&mut self, stmt: &mut Block)->T;
+    fn visit_class_stmt(&mut self, stmt: &mut Class)->T;
+    fn visit_expression_stmt(&mut self, stmt: &mut Expression)->T;
+    fn visit_function_stmt(&mut self, stmt: &mut Function)->T;
+    fn visit_if_stmt(&mut self, stmt: &mut If)->T;
+    fn visit_print_stmt(&mut self, stmt: &mut Print)->T;
+    fn visit_return_stmt(&mut self, stmt: &mut Return)->T;
+    fn visit_var_stmt(&mut self, stmt: &mut Var)->T;
+    fn visit_while_stmt(&mut self, stmt: &mut While)->T;
 }
+
+pub trait Stmt {
+    fn accept<T>(&mut self, visitor:&mut impl StmtVisitor<T>) ->T;
+}
+
+// region Block Statement
+struct Block{
+    statements: Vec<StmtNode>
+}
+
+impl Stmt for Block {
+    fn accept<T>(&mut self, visitor: &mut impl StmtVisitor<T>) -> T {
+        visitor.visit_block_stmt(self)
+    }
+}
+
+impl Block {
+    fn new(statements: Vec<StmtNode>)->Block{
+        Block{
+            statements
+        }
+    }
+}
+// endregion Block Statement
+
+// region Class Statement
+struct Class {
+    name: Token,
+    superclass: Variable,
+    methods: Vec<Function>
+}
+
+impl Stmt for Class {
+    fn accept<T>(&mut self, visitor: &mut impl StmtVisitor<T>) -> T {
+        visitor.visit_class_stmt(self)
+    }
+}
+
+impl Class {
+    fn new(name:Token, superclass: Variable, methods: Vec<Function>)->Class{
+        Class{
+            name,
+            superclass,
+            methods,
+        }
+    }
+}
+
+// endregion Class Statement
+
+// region Expression Statement
+struct Expression {
+    expression: ExprKind,
+}
+
+impl Stmt for Expression {
+    fn accept<T>(&mut self, visitor: &mut impl StmtVisitor<T>) -> T {
+        visitor.visit_expression_stmt(self)
+    }
+}
+
+impl Expression {
+    fn new(expression: ExprKind)->Expression{
+        Expression {
+            expression
+        }
+    }
+}
+
+// endregion Expression Statement
+
+// region Function Statement
+struct Function {
+    name: Token,
+    params: Vec<Token>,
+    body: Vec<StmtKind>
+}
+
+impl Stmt for Function {
+    fn accept<T>(&mut self, visitor: &mut impl StmtVisitor<T>) -> T {
+        visitor.visit_function_stmt(self)
+    }
+}
+
+impl Function{
+    fn new(name:Token, params: Vec<Token>, body: Vec<StmtKind>)->Function{
+        Function{
+            name,
+            params,
+            body,
+        }
+    }
+}
+// endregion Function Statement
+
+// region If Statement
+
+struct If {
+    condition: ExprKind,
+    then_branch: StmtNode,
+    else_branch: StmtNode,
+}
+
+impl Stmt for If{
+    fn accept<T>(&mut self, visitor: &mut impl StmtVisitor<T>) -> T {
+        visitor.visit_if_stmt(self)
+    }
+}
+
+impl If{
+    fn new(condition:ExprKind, then_branch:StmtNode, else_branch:StmtNode)->If{
+        If{
+            condition, then_branch, else_branch
+        }
+    }
+}
+
+// endregion If Statement
+
+// region Print Statement
+
+struct Print{
+    expression: ExprKind
+}
+
+impl Stmt for Print {
+    fn accept<T>(&mut self, visitor: &mut impl StmtVisitor<T>) -> T {
+        visitor.visit_print_stmt(self)
+    }
+}
+
+impl Print {
+    fn new(expression: ExprKind)->Print{
+        Print{
+            expression
+        }
+    }
+}
+
+// endregion Print Statement
+
+// region Return Statement
+struct Return {
+    keyword:Token,
+    value: ExprKind,
+}
+
+impl Stmt for Return{
+    fn accept<T>(&mut self, visitor: &mut impl StmtVisitor<T>) -> T {
+        visitor.visit_return_stmt(self)
+    }
+}
+
+impl Return {
+    fn new(keyword:Token, value:ExprKind)->Return{
+        Return{
+            keyword, value
+        }
+    }
+}
+// endregion Return Statement
+
+// region Variable Statement
+struct Var {
+    name:Token,
+    initializer: ExprKind
+}
+
+impl Stmt for Var{
+    fn accept<T>(&mut self, visitor: &mut impl StmtVisitor<T>) -> T {
+        visitor.visit_var_stmt(self)
+    }
+}
+
+impl Var{
+    fn new(name:Token, initializer:ExprKind)->Var{
+        Var{
+            name, initializer
+        }
+    }
+}
+
+// endregion Variable Statement
+
+// region While Statement
+
+struct While{
+    condition: ExprNode,
+    body: StmtNode
+}
+
+impl Stmt for While {
+    fn accept<T>(&mut self, visitor: &mut impl StmtVisitor<T>) -> T {
+        visitor.visit_while_stmt(self)
+    }
+}
+
+impl While{
+    fn new(condition: ExprNode, body:StmtNode)->While{
+        While{
+            condition, body
+        }
+    }
+}
+// endregion While Statement
 
 // endregion Statement
