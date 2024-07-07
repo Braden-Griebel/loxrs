@@ -42,7 +42,7 @@ impl Interpreter{
         self.run(contents);
 
         // Indicate an error in th exit code.
-        if (self.had_error) {process::exit(65)}
+        if self.had_error {process::exit(65)}
     }
 
     pub fn run_prompt(&mut self){
