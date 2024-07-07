@@ -6,28 +6,26 @@ use crate::interpreter::Interpreter;
 use std::collections::HashMap;
 
 
-enum Literal{
+enum LiteralValue {
     None,
     StringValue(String),
     NumValue(f64),
     IdentifierValue(String),
 }
 
-impl fmt::Display for Literal{
+impl fmt::Display for LiteralValue {
     fn fmt(&self, f:&mut fmt::Formatter)->fmt::Result{
         match self {
-            Literal::None=>write!(f,""),
-            Literal::StringValue(s)=>write!(f, "{s}"),
-            Literal::NumValue(x)=>write!(f, "{x}"),
-            Literal::IdentifierValue(s)=>write!(f, "{s}"),
+            LiteralValue::None=>write!(f, ""),
+            LiteralValue::StringValue(s)=>write!(f, "{s}"),
+            LiteralValue::NumValue(x)=>write!(f, "{x}"),
+            LiteralValue::IdentifierValue(s)=>write!(f, "{s}"),
         }
     }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum TokenType {
-    // Single Character Tokens
-    Character,
     LeftParen,
     RightParen,
     LeftBrace,
@@ -75,7 +73,6 @@ pub enum TokenType {
 impl fmt::Display for TokenType {
     fn fmt(&self, f:&mut fmt::Formatter)->fmt::Result{
         match self {
-            TokenType::Character=>write!(f, "CHARACTER"), // This will be deleted
             TokenType::LeftParen=>write!(f, "("),
             TokenType::RightParen=>write!(f, ")"),
             TokenType::LeftBrace=>write!(f, "{{"),
@@ -125,12 +122,12 @@ impl fmt::Display for TokenType {
 pub struct Token {
     token_type:TokenType,
     lexeme: String,
-    literal: Literal, // Object in jlox
+    literal: LiteralValue, // Object in jlox
     line:i32,
 }
 
 impl Token{
-    pub fn new(token_type: TokenType, lexeme: String, literal:Literal, line:i32)->Token{
+    pub fn new(token_type: TokenType, lexeme: String, literal: LiteralValue, line:i32) ->Token{
         Token{
             token_type,
             lexeme,
@@ -167,7 +164,7 @@ impl Lexer{
             self.scan_token();
         }
 
-        self.tokens.push_back(Token::new(TokenType::Eof, String::new(), Literal::None, self.line));
+        self.tokens.push_back(Token::new(TokenType::Eof, String::new(), LiteralValue::None, self.line));
         return &self.tokens;
     }
 
@@ -175,46 +172,46 @@ impl Lexer{
         let c:char = self.advance();
         match c {
             // Single Character Lexemes
-            '('=>self.add_token(TokenType::LeftParen, Literal::None),
-            ')'=>self.add_token(TokenType::RightParen, Literal::None),
-            '{'=>self.add_token(TokenType::LeftBrace, Literal::None),
-            '}'=>self.add_token(TokenType::RightBrace, Literal::None),
-            ','=>self.add_token(TokenType::Comma, Literal::None),
-            '.'=>self.add_token(TokenType::Dot, Literal::None),
-            '-'=>self.add_token(TokenType::Minus, Literal::None),
-            '+'=>self.add_token(TokenType::Plus, Literal::None),
-            ';'=>self.add_token(TokenType::SemiColon, Literal::None),
-            '*'=>self.add_token(TokenType::Star, Literal::None),
+            '('=>self.add_token(TokenType::LeftParen, LiteralValue::None),
+            ')'=>self.add_token(TokenType::RightParen, LiteralValue::None),
+            '{'=>self.add_token(TokenType::LeftBrace, LiteralValue::None),
+            '}'=>self.add_token(TokenType::RightBrace, LiteralValue::None),
+            ','=>self.add_token(TokenType::Comma, LiteralValue::None),
+            '.'=>self.add_token(TokenType::Dot, LiteralValue::None),
+            '-'=>self.add_token(TokenType::Minus, LiteralValue::None),
+            '+'=>self.add_token(TokenType::Plus, LiteralValue::None),
+            ';'=>self.add_token(TokenType::SemiColon, LiteralValue::None),
+            '*'=>self.add_token(TokenType::Star, LiteralValue::None),
             '!'=>{
                 let next_match = self.check_next('=');
                 if next_match {
-                    self.add_token(TokenType::BangEqual, Literal::None);
+                    self.add_token(TokenType::BangEqual, LiteralValue::None);
                 } else {
-                    self.add_token(TokenType::Bang, Literal::None);
+                    self.add_token(TokenType::Bang, LiteralValue::None);
                 }
                 },
             '='=>{
                 let next_match = self.check_next('=');
                 if next_match {
-                    self.add_token(TokenType::EqualEqual, Literal::None);
+                    self.add_token(TokenType::EqualEqual, LiteralValue::None);
                 } else {
-                    self.add_token(TokenType::Equal, Literal::None);
+                    self.add_token(TokenType::Equal, LiteralValue::None);
                 }
             },
             '<'=>{
                 let next_match = self.check_next('=');
                 if next_match {
-                    self.add_token(TokenType::LessEqual, Literal::None);
+                    self.add_token(TokenType::LessEqual, LiteralValue::None);
                 } else {
-                    self.add_token(TokenType::Less, Literal::None);
+                    self.add_token(TokenType::Less, LiteralValue::None);
                 }
             },
             '>'=>{
                 let next_match = self.check_next('=');
                 if next_match {
-                    self.add_token(TokenType::GreaterEqual, Literal::None);
+                    self.add_token(TokenType::GreaterEqual, LiteralValue::None);
                 } else {
-                    self.add_token(TokenType::Greater, Literal::None);
+                    self.add_token(TokenType::Greater, LiteralValue::None);
                 }
             },
             '/'=>{
@@ -223,7 +220,7 @@ impl Lexer{
                         self.advance();
                     }
                 } else {
-                    self.add_token(TokenType::Slash, Literal::None);
+                    self.add_token(TokenType::Slash, LiteralValue::None);
                 }
             },
             ' '=>{},
@@ -259,7 +256,7 @@ impl Lexer{
 
         // Trim quotes
         let str_value: String = self.source[(self.start+1)..(self.current-1)].iter().collect();
-        self.add_token(TokenType::StringToken, Literal::StringValue(str_value))
+        self.add_token(TokenType::StringToken, LiteralValue::StringValue(str_value))
     }
 
     fn read_number(&mut self){
@@ -275,7 +272,7 @@ impl Lexer{
         let num_str: String = self.source[self.start..self.current].iter().collect();
         let num_float:f64 = num_str.parse().unwrap();
 
-        self.add_token(TokenType::Number, Literal::NumValue(num_float));
+        self.add_token(TokenType::Number, LiteralValue::NumValue(num_float));
     }
 
     fn read_identifier(&mut self){
@@ -286,9 +283,9 @@ impl Lexer{
         let text: String = self.source[self.start..self.current].iter().collect();
 
         match self.keywords.get(&text) {
-            Some(token_type) =>{self.add_token(token_type.clone(), Literal::None)},
+            Some(token_type) =>{self.add_token(token_type.clone(), LiteralValue::None)},
             None=>self.add_token(TokenType::Identifier,
-                                 Literal::IdentifierValue(text))
+                                 LiteralValue::IdentifierValue(text))
         }
     }
 
@@ -331,7 +328,7 @@ impl Lexer{
         return self.source[self.current];
     }
 
-    fn add_token(&mut self, token_type: TokenType, literal: Literal){
+    fn add_token(&mut self, token_type: TokenType, literal: LiteralValue){
         let text: String = self.source[self.start..self.current].iter().collect();
         self.tokens.push_back(Token::new(token_type, text, literal, self.line));
     }
