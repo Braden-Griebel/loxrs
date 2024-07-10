@@ -1,6 +1,6 @@
 use crate::ast::{Expr, Stmt, Visitor};
 
-struct AstPrinter {
+pub struct AstPrinter {
 
 }
 
@@ -46,12 +46,17 @@ impl Visitor<String> for AstPrinter {
 }
 
 impl AstPrinter {
-    fn print(&mut self, expr: &mut Expr)->String{
+    
+    pub fn new()->AstPrinter{
+        AstPrinter{}
+    }
+    pub fn print(&mut self, expr: &mut Expr)->String{
         self.visit_expr(expr)
     }
     fn parenthesize(&mut self, name:String, exprs: Vec<&mut Expr>)->String{
         let mut paren_str = String::new();
         paren_str.push_str("(");
+        paren_str.push_str(&name);
         for expr in exprs {
             paren_str.push_str(" ");
             paren_str.push_str(&self.visit_expr(expr))

@@ -3,6 +3,8 @@ use std::fmt;
 #[derive(Debug, Clone)]
 pub enum LiteralValue {
     None,
+    True,
+    False,
     StringValue(String),
     NumValue(f64),
     IdentifierValue(String),
@@ -12,6 +14,8 @@ impl fmt::Display for LiteralValue {
     fn fmt(&self, f:&mut fmt::Formatter)->fmt::Result{
         match self {
             LiteralValue::None=>write!(f, "nil"),
+            LiteralValue::True=>write!(f, "true"),
+            LiteralValue::False=>write!(f,"false"),
             LiteralValue::StringValue(s)=>write!(f, "{s}"),
             LiteralValue::NumValue(x)=>write!(f, "{x}"),
             LiteralValue::IdentifierValue(s)=>write!(f, "{s}"),
@@ -19,7 +23,7 @@ impl fmt::Display for LiteralValue {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
     LeftParen,
     RightParen,
@@ -116,10 +120,10 @@ impl fmt::Display for TokenType {
 
 #[derive(Debug, Clone)]
 pub struct Token {
-    token_type:TokenType,
+    pub(crate) token_type:TokenType,
     pub(crate) lexeme: String,
-    literal: LiteralValue, // Object in jlox
-    line:i32,
+    pub(crate) literal: LiteralValue, // Object in jlox
+    pub(crate) line:i32,
 }
 
 impl Token{

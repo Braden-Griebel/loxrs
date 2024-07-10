@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::fmt::Debug;
 use crate::interpreter::Interpreter;
 use std::collections::HashMap;
 use crate::token::{LiteralValue, Token, TokenType};

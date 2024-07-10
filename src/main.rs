@@ -1,9 +1,6 @@
 use std::{env, process};
-use std::fs::File;
-use std::io::{Read, stdout, Write};
-use std::path::Path;
-use std::io;
-use crate::ast::Expr;
+use std::io::{Read, Write};
+
 use crate::interpreter::Interpreter;
 
 mod scanner;
@@ -11,6 +8,7 @@ mod interpreter;
 mod ast;
 mod printer;
 mod token;
+mod parser;
 
 fn main(){
     let args: Vec<String> = env::args().collect();

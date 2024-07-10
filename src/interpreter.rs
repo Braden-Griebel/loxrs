@@ -3,7 +3,12 @@ use std::fs::File;
 use std::io::{Read, stdout, Write};
 use std::path::Path;
 use std::io;
-use crate::{scanner};
+use crate::{scanner, token};
+use crate::ast::Expr;
+use crate::token::{LiteralValue, TokenType};
+use crate::parser::Parser;
+use crate::printer::AstPrinter;
+
 pub struct Interpreter {
     had_error:bool,
 }
@@ -15,15 +20,23 @@ impl Interpreter{
             had_error:false
         }
     }
-    pub fn run(&self, program: String){
+    pub fn run(&mut self,  program: String){
         let mut lexer = scanner::Lexer::new(program);
         lexer.scan_tokens();
-        for token in lexer.tokens.iter(){
-            println!("{}", token)
-        }
+        
+        let mut parser = Parser::new(Vec::from(lexer.tokens));
+        let mut expr = match parser.parse(){
+            Some(expr)=>expr,
+            None => {self.had_error=true; Expr::new_literal(LiteralValue::None)} 
+        };
+        
+        let mut printer = AstPrinter::new();
+        let tree = printer.print(&mut expr);
+        
+        println!("{}",tree)
     }
 
-    pub fn run_file(&self, program_path: &str){
+    pub fn run_file(&mut self, program_path: &str){
         let file_path = Path::new(program_path);
 
         // open the file
@@ -69,6 +82,14 @@ impl Interpreter{
 
     pub fn error(line:i32, message:&str){
         Interpreter::report(line, "", message)
+    }
+    
+    pub fn error_token(token:token::Token, message:&str) {
+        if token.token_type==TokenType::Eof {
+            Interpreter::report(token.line, "at end", message)
+        } else {
+            Interpreter::report(token.line, &format!(" at '{}'", token.lexeme), message)
+        }
     }
 
     fn report(line: i32, report_where: &str, message: &str){
