@@ -1,18 +1,19 @@
 use std::{env, process};
 use std::io::{Read, Write};
 
-use crate::interpreter::Interpreter;
+use crate::lox::Lox;
 
 mod scanner;
-mod interpreter;
+mod lox;
 mod ast;
 mod printer;
 mod token;
 mod parser;
+mod interpreter;
 
 fn main(){
     let args: Vec<String> = env::args().collect();
-    let mut interpreter = Interpreter::new();
+    let mut interpreter = Lox::new();
     if args.len() > 2{
         println!("Usage: loxrs [script]");
         process::exit(0);

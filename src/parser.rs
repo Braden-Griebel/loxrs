@@ -1,6 +1,6 @@
 use crate::ast::Expr;
 use crate::token::{LiteralValue, Token, TokenType};
-use crate::interpreter::Interpreter;
+use crate::lox::Lox;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -138,7 +138,7 @@ impl Parser {
     }
 
     fn error(token: Token, message: &str) -> ParseError {
-        Interpreter::error_token(token.clone(), message);
+        Lox::error_token(token.clone(), message);
         return ParseError {token, message: message.to_string()};
     }
 

@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use crate::interpreter::Interpreter;
+use crate::lox::Lox;
 use std::collections::HashMap;
 use crate::token::{LiteralValue, Token, TokenType};
 
@@ -87,7 +87,7 @@ impl Lexer{
             '\0'=>{},
             '0'..='9'=>{self.read_number()},
             'a'..='z'|'A'..='Z'|'_'=>{self.read_identifier()},
-            _=>Interpreter::error(self.line, "Unexpected character.")
+            _=> Lox::error(self.line, "Unexpected character.")
         }
     }
 
@@ -105,7 +105,7 @@ impl Lexer{
             self.advance();
         }
         if self.is_at_end(){
-            Interpreter::error(self.line, "Unterminated string.");
+            Lox::error(self.line, "Unterminated string.");
             return ;
         }
         self.advance();

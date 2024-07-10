@@ -1,98 +1,303 @@
-use std::{env, process};
-use std::fs::File;
-use std::io::{Read, stdout, Write};
-use std::path::Path;
-use std::io;
-use crate::{scanner, token};
-use crate::ast::Expr;
-use crate::token::{LiteralValue, TokenType};
-use crate::parser::Parser;
-use crate::printer::AstPrinter;
+use std::cmp::Ordering;
+use crate::ast::{Expr, Stmt, Visitor};
+use crate::token::{LiteralValue, Token, TokenType};
 
-pub struct Interpreter {
-    had_error:bool,
+pub struct Interpreter {}
+
+pub struct InterpreterError {
+    pub(crate) msg: String,
 }
 
-impl Interpreter{
-
-    pub fn new()->Interpreter{
-        Interpreter{
-            had_error:false
+impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
+    fn visit_expr(&mut self, expr: &mut Expr) -> Result<LiteralValue, InterpreterError> {
+        match expr {
+            Expr::Assign { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Expr::Binary { left, operator, right } => {
+                let lhs = self.evaluate(left)?;
+                let rhs = self.evaluate(right)?;
+                match operator.token_type {
+                    TokenType::Minus => {
+                        match lhs - rhs {
+                            Ok(literal_value) => {
+                                Ok(literal_value)
+                            }
+                            Err(_) => {
+                                Err(InterpreterError { msg: "Invalid Subtraction".to_string() })
+                            }
+                        }
+                    }
+                    TokenType::Plus => {
+                        match lhs + rhs {
+                            Ok(literal_value) => {
+                                Ok(literal_value)
+                            }
+                            Err(_) => {
+                                Err(InterpreterError { msg: "Invalid Addition".to_string() })
+                            }
+                        }
+                    }
+                    TokenType::Slash => {
+                        match lhs / rhs {
+                            Ok(literal_value) => {
+                                Ok(literal_value)
+                            }
+                            Err(_) => {
+                                Err(InterpreterError { msg: "Invalid Division".to_string() })
+                            }
+                        }
+                    }
+                    TokenType::Star => {
+                        match lhs * rhs {
+                            Ok(literal_value) => {
+                                Ok(literal_value)
+                            }
+                            Err(_) => {
+                                Err(InterpreterError { msg: "".to_string() })
+                            }
+                        }
+                    }
+                    TokenType::BangEqual => {
+                        match LiteralValue::partial_cmp(&lhs, &rhs) {
+                            None => {
+                                Err(
+                                    InterpreterError {
+                                        msg: "Invalid Inequality Comparison".to_string()
+                                    }
+                                )
+                            }
+                            Some(cmp) => {
+                                match cmp {
+                                    Ordering::Less => {
+                                        Ok(LiteralValue::True)
+                                    }
+                                    Ordering::Equal => {
+                                        Ok(LiteralValue::False)
+                                    }
+                                    Ordering::Greater => {
+                                        Ok(LiteralValue::True)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType::EqualEqual => {
+                        match LiteralValue::partial_cmp(&lhs, &rhs) {
+                            None => {
+                                Err(
+                                    InterpreterError {
+                                        msg: "Invalid Equality Comparison".to_string()
+                                    }
+                                )
+                            }
+                            Some(cmp) => {
+                                match cmp {
+                                    Ordering::Less => {
+                                        Ok(LiteralValue::False)
+                                    }
+                                    Ordering::Equal => {
+                                        Ok(LiteralValue::True)
+                                    }
+                                    Ordering::Greater => {
+                                        Ok(LiteralValue::False)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType::Greater => {
+                        match LiteralValue::partial_cmp(&lhs, &rhs) {
+                            None => {
+                                Err(
+                                    InterpreterError {
+                                        msg: "Invalid Greater Comparison".to_string()
+                                    }
+                                )
+                            }
+                            Some(cmp) => {
+                                match cmp {
+                                    Ordering::Less => {
+                                        Ok(LiteralValue::False)
+                                    }
+                                    Ordering::Equal => {
+                                        Ok(LiteralValue::False)
+                                    }
+                                    Ordering::Greater => {
+                                        Ok(LiteralValue::True)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType::GreaterEqual => {
+                        match LiteralValue::partial_cmp(&lhs, &rhs) {
+                            None => {
+                                Err(
+                                    InterpreterError {
+                                        msg: "Invalid Greater/Equal Comparison".to_string()
+                                    }
+                                )
+                            }
+                            Some(cmp) => {
+                                match cmp {
+                                    Ordering::Less => {
+                                        Ok(LiteralValue::False)
+                                    }
+                                    Ordering::Equal => {
+                                        Ok(LiteralValue::True)
+                                    }
+                                    Ordering::Greater => {
+                                        Ok(LiteralValue::True)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType::Less => {
+                        match LiteralValue::partial_cmp(&lhs, &rhs) {
+                            None => {
+                                Err(
+                                    InterpreterError {
+                                        msg: "Invalid Less Comparison".to_string()
+                                    }
+                                )
+                            }
+                            Some(cmp) => {
+                                match cmp {
+                                    Ordering::Less => {
+                                        Ok(LiteralValue::True)
+                                    }
+                                    Ordering::Equal => {
+                                        Ok(LiteralValue::False)
+                                    }
+                                    Ordering::Greater => {
+                                        Ok(LiteralValue::False)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType::LessEqual => {
+                        match LiteralValue::partial_cmp(&lhs, &rhs) {
+                            None => {
+                                Err(
+                                    InterpreterError {
+                                        msg: "Invalid Less/Equal Comparison".to_string()
+                                    }
+                                )
+                            }
+                            Some(cmp) => {
+                                match cmp {
+                                    Ordering::Less => {
+                                        Ok(LiteralValue::True)
+                                    }
+                                    Ordering::Equal => {
+                                        Ok(LiteralValue::True)
+                                    }
+                                    Ordering::Greater => {
+                                        Ok(LiteralValue::False)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TokenType::And => {
+                        match lhs & rhs {
+                            Ok(value) => {Ok(value)}
+                            Err(_) => {
+                                Err(InterpreterError{
+                                    msg: "Invalid AND Operation".to_string()
+                                })
+                            }
+                        }
+                    }
+                    TokenType::Or => {
+                        match lhs | rhs {
+                            Ok(value) => {Ok(value)}
+                            Err(_) => {
+                                Err(InterpreterError{
+                                    msg: "Invalid OR Operation".to_string()
+                                })
+                            }
+                        }
+                    }
+                    _ => {
+                        Err(InterpreterError { msg: "Invalid Binary Operator".to_string() })
+                    }
+                }
+            }
+            Expr::Call { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Expr::Get { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Expr::Grouping { expression } => {
+                self.evaluate(expression)
+            }
+            Expr::Literal { value } => {
+                Ok(value.clone())
+            }
+            Expr::Logical { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Expr::Set { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Expr::Super { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Expr::This { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Expr::Unary { operator, right } => {
+                let rhs = self.evaluate(right);
+                match rhs {
+                    Ok(literal_value) => {
+                        match operator.token_type {
+                            TokenType::Minus => {
+                                match -literal_value {
+                                    Ok(new_value) => {
+                                        Ok(new_value)
+                                    }
+                                    Err(_) => {
+                                        Err(InterpreterError {
+                                            msg: "Invalid Negative Operation".to_string()
+                                        })
+                                    }
+                                }
+                            }
+                            TokenType::Bang => {
+                                match !literal_value {
+                                    Ok(new_value) => {
+                                        Ok(new_value)
+                                    }
+                                    Err(_) => {
+                                        Err(InterpreterError {
+                                            msg: "Invalid Not Operation".to_string()
+                                        })
+                                    }
+                                }
+                            }
+                            _ => Err(InterpreterError {
+                                msg: "Invalid Unary Operator".to_string()
+                            })
+                        }
+                    }
+                    Err(err) => {
+                        Err(InterpreterError {
+                            msg:
+                            err.msg
+                        })
+                    }
+                }
+            }
+            Expr::Variable { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
         }
     }
-    pub fn run(&mut self,  program: String){
-        let mut lexer = scanner::Lexer::new(program);
-        lexer.scan_tokens();
-        
-        let mut parser = Parser::new(Vec::from(lexer.tokens));
-        let mut expr = match parser.parse(){
-            Some(expr)=>expr,
-            None => {self.had_error=true; Expr::new_literal(LiteralValue::None)} 
-        };
-        
-        let mut printer = AstPrinter::new();
-        let tree = printer.print(&mut expr);
-        
-        println!("{}",tree)
+
+    fn visit_stmt(&mut self, stmt: &mut Stmt) -> Result<LiteralValue, InterpreterError> {
+        todo!()
+    }
+}
+
+impl Interpreter {
+    pub fn new() -> Interpreter {
+        Interpreter {}
     }
 
-    pub fn run_file(&mut self, program_path: &str){
-        let file_path = Path::new(program_path);
-
-        // open the file
-        let mut file = match File::open(&file_path){
-            Err(why)=> panic!("Couldn't read {}: {}", program_path, why),
-            Ok(file)=> file,
-        };
-
-        // Read the file contents into string
-        let mut contents = String::new();
-        match file.read_to_string(&mut contents){
-            Err(why)=> panic!("Couldn't read {}:{}", program_path, why),
-            Ok(_) => {}
-        };
-
-        self.run(contents);
-
-        // Indicate an error in th exit code.
-        if self.had_error {process::exit(65)}
-    }
-
-    pub fn run_prompt(&mut self){
-        loop{
-            print!(">");
-            stdout().flush().unwrap();
-
-            // Read user input
-            let mut input = String::new();
-            let read_result = io::stdin().read_line(&mut input);
-            //input += &String::from('\n');
-
-            // Check for EOF
-            match read_result {
-                Err(_)=>println!("Couldn't readline"),
-                Ok(0)=>break,
-                Ok(_)=>{}
-            };
-
-            self.run(input);
-            self.had_error = false;
-        }
-    }
-
-    pub fn error(line:i32, message:&str){
-        Interpreter::report(line, "", message)
+    fn evaluate(&mut self, expr: &mut Box<Expr>) -> Result<LiteralValue, InterpreterError> {
+        return self.visit_expr(expr);
     }
     
-    pub fn error_token(token:token::Token, message:&str) {
-        if token.token_type==TokenType::Eof {
-            Interpreter::report(token.line, "at end", message)
-        } else {
-            Interpreter::report(token.line, &format!(" at '{}'", token.lexeme), message)
-        }
-    }
-
-    fn report(line: i32, report_where: &str, message: &str){
-        println!("[ {0}] Error {1}: {2}", line, report_where, message)
+    pub fn interpret(&mut self, expression: Expr)->Result<LiteralValue, InterpreterError>{
+        self.evaluate(&mut Box::new(expression))
     }
 }
