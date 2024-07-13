@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process;
 
 use crate::{scanner, token};
-use crate::ast::Expr;
+use crate::ast::{Expr, Stmt};
 use crate::parser::Parser;
 use crate::printer::AstPrinter;
 use crate::token::{LiteralValue, TokenType};
@@ -27,18 +27,14 @@ impl Lox {
         lexer.scan_tokens();
         
         let mut parser = Parser::new(Vec::from(lexer.tokens));
-        let mut expr = match parser.parse(){
-            Some(expr)=>expr,
-            None => {self.had_error=true; Expr::new_literal(LiteralValue::None)} 
+        let mut statements = match parser.parse(){
+            Ok(stmts)=>stmts,
+            Err(_) => {self.had_error=true; vec![Stmt::new_expression(Expr::new_literal(LiteralValue::None))]} 
         };
-        
-        let mut printer = AstPrinter::new();
-        let tree = printer.print(&mut expr);
-        println!("{}",tree);
         
         let mut interpreter = Interpreter::new();
         
-        let result = interpreter.interpret(expr);
+        let result = interpreter.interpret(&mut statements);
         match result {
             Ok(value) => {
                 println!("{}", value)

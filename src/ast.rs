@@ -160,7 +160,7 @@ pub enum Stmt {
     },
     Variable {
         name: Token,
-        initializer: Box<Expr>,
+        initializer: Option<Box<Expr>>,
     },
     While {
         condition: Box<Expr>,
@@ -211,10 +211,17 @@ impl Stmt {
             value:Box::new(value)
         }
     }
-    pub fn new_variable(name:Token, initializer: Expr)->Stmt{
+    pub fn new_variable_initialized(name:Token, initializer: Expr)->Stmt{
         Stmt::Variable {
             name,
-            initializer: Box::new(initializer)
+            initializer: Some(Box::new(initializer))
+        }
+    }
+    
+    pub fn new_variable_uninitialized(name:Token)-> Stmt{
+        Stmt::Variable {
+            name, 
+            initializer: None
         }
     }
     pub fn new_while(condition:Expr, body:Stmt)->Stmt{

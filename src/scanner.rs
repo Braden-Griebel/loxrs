@@ -216,8 +216,8 @@ impl Lexer{
                 (String::from("super"), TokenType::Super),
                 (String::from("this"), TokenType::This),
                 (String::from("true"), TokenType::True),
-                (String::from("Var"), TokenType::Var),
-                (String::from("While"), TokenType::While),
+                (String::from("var"), TokenType::Var),
+                (String::from("while"), TokenType::While),
             ])
         }
     }

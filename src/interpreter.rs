@@ -1,8 +1,14 @@
 use std::cmp::Ordering;
+use std::io;
+use std::io::Write;
 use crate::ast::{Expr, Stmt, Visitor};
+use crate::ast::Expr::Literal;
 use crate::token::{LiteralValue, Token, TokenType};
+use crate::environment::{Environment, EnvironmentError};
 
-pub struct Interpreter {}
+pub struct Interpreter {
+    pub environment: Environment,
+}
 
 pub struct InterpreterError {
     pub(crate) msg: String,
@@ -11,7 +17,17 @@ pub struct InterpreterError {
 impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
     fn visit_expr(&mut self, expr: &mut Expr) -> Result<LiteralValue, InterpreterError> {
         match expr {
-            Expr::Assign { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Expr::Assign { name, value } => {
+                let value: LiteralValue = self.evaluate(value)?;
+                match self.environment.assign(name, value.clone()) {
+                    None => { Ok(value) }
+                    Some(err) => {
+                        Err(InterpreterError {
+                            msg: err.msg
+                        })
+                    }
+                }
+            }
             Expr::Binary { left, operator, right } => {
                 let lhs = self.evaluate(left)?;
                 let rhs = self.evaluate(right)?;
@@ -202,9 +218,9 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                     }
                     TokenType::And => {
                         match lhs & rhs {
-                            Ok(value) => {Ok(value)}
+                            Ok(value) => { Ok(value) }
                             Err(_) => {
-                                Err(InterpreterError{
+                                Err(InterpreterError {
                                     msg: "Invalid AND Operation".to_string()
                                 })
                             }
@@ -212,9 +228,9 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                     }
                     TokenType::Or => {
                         match lhs | rhs {
-                            Ok(value) => {Ok(value)}
+                            Ok(value) => { Ok(value) }
                             Err(_) => {
-                                Err(InterpreterError{
+                                Err(InterpreterError {
                                     msg: "Invalid OR Operation".to_string()
                                 })
                             }
@@ -279,25 +295,100 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                     }
                 }
             }
-            Expr::Variable { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Expr::Variable { name } => {
+                match self.environment.get(name) {
+                    Ok(val) => { Ok(val) }
+                    Err(_) => {
+                        Err(InterpreterError {
+                            msg: format!("{} not defined", name.lexeme)
+                        })
+                    }
+                }
+            }
         }
     }
 
     fn visit_stmt(&mut self, stmt: &mut Stmt) -> Result<LiteralValue, InterpreterError> {
-        todo!()
+        match stmt {
+            Stmt::Block { statements } => {
+                self.execute_block(statements, Environment::new_local(Box::new(self.environment.clone())));
+                return Ok(LiteralValue::None);
+            }
+            Stmt::Class { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Stmt::Expression { expression } => {
+                self.evaluate(expression)
+            }
+            Stmt::Function { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Stmt::If { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Stmt::Print { expression } => {
+                let value: LiteralValue = self.evaluate(expression)?;
+                println!("{}", value);
+                match io::stdout().flush() {
+                    Ok(_) => {}
+                    Err(_) => { return Err(InterpreterError { msg: "Error Flushing StdOut in Print Statement".to_string() }) }
+                };
+                return Ok(LiteralValue::None);
+            }
+            Stmt::Return { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Stmt::Variable { name, initializer } => {
+                match initializer {
+                    None => {
+                        self.environment.define(name.lexeme.clone(), LiteralValue::None);
+                        Ok(LiteralValue::None)
+                    }
+                    Some(expr) => {
+                        let value = self.evaluate(expr)?;
+                        self.environment.define(name.lexeme.clone(), value);
+                        Ok(LiteralValue::None)
+                    }
+                }
+            }
+            Stmt::While { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+        }
     }
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
-        Interpreter {}
+        Interpreter {
+            environment: Environment::new_global()
+        }
     }
 
     fn evaluate(&mut self, expr: &mut Box<Expr>) -> Result<LiteralValue, InterpreterError> {
         return self.visit_expr(expr);
     }
-    
-    pub fn interpret(&mut self, expression: Expr)->Result<LiteralValue, InterpreterError>{
-        self.evaluate(&mut Box::new(expression))
+
+    pub fn interpret(&mut self, statements: &mut Vec<Stmt>) -> Result<LiteralValue, InterpreterError> {
+        let mut last_val: LiteralValue = LiteralValue::None;
+        for statement in statements.iter_mut() {
+            last_val = match self.execute(statement) {
+                Ok(value) => { value }
+                Err(_) => { return Err(InterpreterError { msg: "Error Executing Statemment".to_string() }) }
+            };
+        }
+        return Ok(last_val);
+    }
+
+    fn execute(&mut self, stmt: &mut Stmt) -> Result<LiteralValue, InterpreterError> {
+        self.visit_stmt(stmt)
+    }
+
+    fn execute_block(&mut self, statements: &mut Vec<Box<Stmt>>, environment: Environment) -> Result<LiteralValue, InterpreterError> {
+        let previous: Environment = self.environment.clone();
+        self.environment = environment;
+        for stmt in statements {
+            match self.execute(stmt) {
+                Ok(_) => {}
+                Err(_) => {
+                    self.environment = previous;
+                    return Err(InterpreterError {
+                        msg: "Error executing Block".to_string()
+                    })
+                }
+            };
+        }
+        self.environment = previous;
+        Ok(LiteralValue::None)   
     }
 }
