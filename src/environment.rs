@@ -1,10 +1,12 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use crate::token::{LiteralValue, Token};
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Environment {
     values: HashMap<String, LiteralValue>,
-    enclosing: Option<Box<Environment>>,
+    enclosing: Option<Rc<RefCell<Environment>>>,
 }
 
 impl Environment {
@@ -15,7 +17,7 @@ impl Environment {
         }
     }
 
-    pub fn new_local(enclosing: Box<Environment>) -> Environment {
+    pub fn new_local(enclosing: Rc<RefCell<Environment>>) -> Environment {
         Environment {
             values: HashMap::new(),
             enclosing: Some(enclosing),
@@ -31,7 +33,7 @@ impl Environment {
                 match &self.enclosing {
                     None => { Err(EnvironmentError { msg: format!("Couldn't Find Variable: {}", &name.lexeme) }) }
                     Some(env) => {
-                        env.get(&name)
+                        env.borrow().get(&name)
                     }
                 }
             }
@@ -49,7 +51,7 @@ impl Environment {
                         })
                     }
                     Some(env) => {
-                        env.assign(name, value)
+                        env.borrow_mut().assign(name, value)
                     }
                 }
             }

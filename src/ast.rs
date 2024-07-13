@@ -2,9 +2,9 @@ use crate::token::{LiteralValue, Token};
 
 #[derive(Clone, Debug)]
 pub enum Expr {
-    Assign{
+    Assign {
         name: Token,
-        value: Box<Expr>
+        value: Box<Expr>,
     },
     Binary {
         left: Box<Expr>,
@@ -34,7 +34,7 @@ pub enum Expr {
     Set {
         object: Box<Expr>,
         name: Token,
-        value: Box<Expr>
+        value: Box<Expr>,
     },
     Super {
         keyword: Token,
@@ -54,81 +54,82 @@ pub enum Expr {
 
 
 impl Expr {
-    pub fn new_assign(name: Token, value:Expr)->Expr{
+    pub fn new_assign(name: Token, value: Expr) -> Expr {
         Expr::Assign {
             name,
             value: Box::new(value),
         }
     }
-    pub fn new_binary(left:Expr, operator:Token, right:Expr)->Expr{
+    pub fn new_binary(left: Expr, operator: Token, right: Expr) -> Expr {
         Expr::Binary {
             operator,
             left: Box::new(left),
             right: Box::new(right),
         }
     }
-    pub fn new_call(callee:Expr, paren:Token, arguments: Vec<Expr>)->Expr{
+    pub fn new_call(callee: Expr, paren: Token, arguments: Vec<Expr>) -> Expr {
         Expr::Call {
             callee: Box::new(callee),
             paren,
-            arguments: arguments.into_iter().map(|x| Box::new(x)).collect()
+            arguments: arguments.into_iter().map(|x| Box::new(x)).collect(),
         }
     }
-    pub fn new_get(object:Expr, name:Token)->Expr{
+    pub fn new_get(object: Expr, name: Token) -> Expr {
         Expr::Get {
             object: Box::new(object),
-            name
+            name,
         }
     }
-    pub fn new_grouing(expression:Expr)->Expr{
+    pub fn new_grouing(expression: Expr) -> Expr {
         Expr::Grouping {
             expression: Box::new(expression)
         }
     }
-    pub fn new_literal(value:LiteralValue)->Expr{
+    pub fn new_literal(value: LiteralValue) -> Expr {
         Expr::Literal {
             value
         }
     }
-    pub fn new_logical(left:Expr, operator:Token, right:Expr)->Expr{
+    pub fn new_logical(left: Expr, operator: Token, right: Expr) -> Expr {
         Expr::Logical {
-            left:Box::new(left),
+            left: Box::new(left),
             operator,
-            right: Box::new(right)
+            right: Box::new(right),
         }
     }
-    pub fn new_set(object:Expr, name:Token, value: Expr)->Expr{
+    pub fn new_set(object: Expr, name: Token, value: Expr) -> Expr {
         Expr::Set {
-            object:Box::new(object),
+            object: Box::new(object),
             name,
-            value: Box::new(value)
+            value: Box::new(value),
         }
     }
-    pub fn new_super(keyword:Token, method:Token)->Expr{
+    pub fn new_super(keyword: Token, method: Token) -> Expr {
         Expr::Super {
             keyword,
-            method
+            method,
         }
     }
-    pub fn new_this(keyword:Token)->Expr{
+    pub fn new_this(keyword: Token) -> Expr {
         Expr::This {
             keyword
         }
     }
-    pub fn new_unary(operator:Token, right:Expr)->Expr{
+    pub fn new_unary(operator: Token, right: Expr) -> Expr {
         Expr::Unary {
             operator,
-            right:Box::new(right)
+            right: Box::new(right),
         }
     }
 
-    pub fn new_variable(name:Token)->Expr{
+    pub fn new_variable(name: Token) -> Expr {
         Expr::Variable {
             name
         }
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum Stmt {
     Block {
         statements: Vec<Box<Stmt>>
@@ -149,7 +150,7 @@ pub enum Stmt {
     If {
         condition: Box<Expr>,
         then_branch: Box<Stmt>,
-        else_branch: Box<Stmt>,
+        else_branch: Option<Box<Stmt>>,
     },
     Print {
         expression: Box<Expr>,
@@ -169,70 +170,81 @@ pub enum Stmt {
 }
 
 impl Stmt {
-    pub fn new_block(statements: Vec<Stmt>)->Stmt{
+    pub fn new_block(statements: Vec<Stmt>) -> Stmt {
         Stmt::Block {
             statements: statements.into_iter().map(|x| Box::new(x)).collect()
         }
     }
-    pub fn new_class(name:Token, superclass:Expr, methods:Vec<Stmt>)->Stmt{
+    pub fn new_class(name: Token, superclass: Expr, methods: Vec<Stmt>) -> Stmt {
         Stmt::Class {
             name,
             superclass: Box::new(superclass),
-            methods:methods.into_iter().map(|x| Box::new(x)).collect()
+            methods: methods.into_iter().map(|x| Box::new(x)).collect(),
         }
     }
-    pub fn new_expression(expression:Expr)->Stmt{
+    pub fn new_expression(expression: Expr) -> Stmt {
         Stmt::Expression {
             expression: Box::new(expression)
         }
     }
-    pub fn new_function(name:Token, params:Vec<Token>, body: Vec<Stmt>)->Stmt{
+    pub fn new_function(name: Token, params: Vec<Token>, body: Vec<Stmt>) -> Stmt {
         Stmt::Function {
             name,
             params,
-            body: body.into_iter().map(|x| Box::new(x)).collect()
+            body: body.into_iter().map(|x| Box::new(x)).collect(),
         }
     }
-    pub fn new_if(condition:Expr, then_branch:Stmt, else_branch:Stmt)->Stmt{
-        Stmt::If {
-            condition:Box::new(condition),
-            then_branch:Box::new(then_branch),
-            else_branch:Box::new(else_branch)
+    pub fn new_if(condition: Expr, then_branch: Stmt, else_branch: Option<Stmt>) -> Stmt {
+        match else_branch {
+            None => {
+                Stmt::If {
+                    condition: Box::new(condition),
+                    then_branch: Box::new(then_branch),
+                    else_branch: None,
+                }
+            }
+            Some(stmt) => {
+                Stmt::If {
+                    condition: Box::new(condition),
+                    then_branch: Box::new(then_branch),
+                    else_branch: Some(Box::new(stmt)),
+                }
+            }
         }
     }
-    pub fn new_print(expression:Expr)->Stmt{
+    pub fn new_print(expression: Expr) -> Stmt {
         Stmt::Print {
-            expression:Box::new(expression)
+            expression: Box::new(expression)
         }
     }
-    pub fn new_return(keyword:Token, value:Expr)->Stmt{
+    pub fn new_return(keyword: Token, value: Expr) -> Stmt {
         Stmt::Return {
             keyword,
-            value:Box::new(value)
+            value: Box::new(value),
         }
     }
-    pub fn new_variable_initialized(name:Token, initializer: Expr)->Stmt{
+    pub fn new_variable_initialized(name: Token, initializer: Expr) -> Stmt {
         Stmt::Variable {
             name,
-            initializer: Some(Box::new(initializer))
+            initializer: Some(Box::new(initializer)),
         }
     }
-    
-    pub fn new_variable_uninitialized(name:Token)-> Stmt{
+
+    pub fn new_variable_uninitialized(name: Token) -> Stmt {
         Stmt::Variable {
-            name, 
-            initializer: None
+            name,
+            initializer: None,
         }
     }
-    pub fn new_while(condition:Expr, body:Stmt)->Stmt{
+    pub fn new_while(condition: Expr, body: Stmt) -> Stmt {
         Stmt::While {
-            condition:Box::new(condition),
-            body: Box::new(body)
+            condition: Box::new(condition),
+            body: Box::new(body),
         }
     }
 }
 
 pub trait Visitor<T> {
-    fn visit_expr(&mut self, expr: &mut Expr)->T;
-    fn visit_stmt(&mut self, stmt: &mut Stmt)->T;
+    fn visit_expr(&mut self, expr: &mut Expr) -> T;
+    fn visit_stmt(&mut self, stmt: &mut Stmt) -> T;
 }

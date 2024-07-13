@@ -1,13 +1,16 @@
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::io;
 use std::io::Write;
+use std::rc::Rc;
 use crate::ast::{Expr, Stmt, Visitor};
 use crate::ast::Expr::Literal;
 use crate::token::{LiteralValue, Token, TokenType};
 use crate::environment::{Environment, EnvironmentError};
+use crate::parser::ParseError;
 
 pub struct Interpreter {
-    pub environment: Environment,
+    pub environment: Rc<RefCell<Environment>>,
 }
 
 pub struct InterpreterError {
@@ -19,7 +22,7 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
         match expr {
             Expr::Assign { name, value } => {
                 let value: LiteralValue = self.evaluate(value)?;
-                match self.environment.assign(name, value.clone()) {
+                match self.environment.borrow_mut().assign(name, value.clone()) {
                     None => { Ok(value) }
                     Some(err) => {
                         Err(InterpreterError {
@@ -249,7 +252,20 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
             Expr::Literal { value } => {
                 Ok(value.clone())
             }
-            Expr::Logical { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Expr::Logical { left, operator, right } => {
+                let left: LiteralValue = self.evaluate(left)?;
+
+                if operator.token_type == TokenType::Or {
+                    if Interpreter::is_truthy(&left)? {
+                        return Ok(left);
+                    }
+                } else {
+                    if !Interpreter::is_truthy(&left)? {
+                        return Ok(left);
+                    }
+                }
+                self.evaluate(right)
+            }
             Expr::Set { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
             Expr::Super { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
             Expr::This { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
@@ -296,7 +312,7 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                 }
             }
             Expr::Variable { name } => {
-                match self.environment.get(name) {
+                match self.environment.borrow().get(name) {
                     Ok(val) => { Ok(val) }
                     Err(_) => {
                         Err(InterpreterError {
@@ -311,7 +327,7 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
     fn visit_stmt(&mut self, stmt: &mut Stmt) -> Result<LiteralValue, InterpreterError> {
         match stmt {
             Stmt::Block { statements } => {
-                self.execute_block(statements, Environment::new_local(Box::new(self.environment.clone())));
+                let _ =self.execute_block(statements, Environment::new_local(self.environment.clone()))?;
                 return Ok(LiteralValue::None);
             }
             Stmt::Class { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
@@ -319,7 +335,16 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                 self.evaluate(expression)
             }
             Stmt::Function { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
-            Stmt::If { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Stmt::If { condition, then_branch, else_branch } => {
+                if Interpreter::is_truthy(&self.evaluate(condition)?)? {
+                    self.execute(then_branch)
+                } else {
+                    match else_branch {
+                        None => { Ok(LiteralValue::None) }
+                        Some(stmt) => { self.execute(stmt) }
+                    }
+                }
+            }
             Stmt::Print { expression } => {
                 let value: LiteralValue = self.evaluate(expression)?;
                 println!("{}", value);
@@ -333,17 +358,22 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
             Stmt::Variable { name, initializer } => {
                 match initializer {
                     None => {
-                        self.environment.define(name.lexeme.clone(), LiteralValue::None);
+                        self.environment.borrow_mut().define(name.lexeme.clone(), LiteralValue::None);
                         Ok(LiteralValue::None)
                     }
                     Some(expr) => {
                         let value = self.evaluate(expr)?;
-                        self.environment.define(name.lexeme.clone(), value);
+                        self.environment.borrow_mut().define(name.lexeme.clone(), value);
                         Ok(LiteralValue::None)
                     }
                 }
             }
-            Stmt::While { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Stmt::While { condition, body } => {
+                while Interpreter::is_truthy(&self.evaluate(condition)?)?{
+                    let _ = self.execute(body)?;
+                }
+                return Ok(LiteralValue::None)
+            }
         }
     }
 }
@@ -351,7 +381,7 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
 impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter {
-            environment: Environment::new_global()
+            environment: Rc::new(RefCell::new(Environment::new_global()))
         }
     }
 
@@ -375,8 +405,8 @@ impl Interpreter {
     }
 
     fn execute_block(&mut self, statements: &mut Vec<Box<Stmt>>, environment: Environment) -> Result<LiteralValue, InterpreterError> {
-        let previous: Environment = self.environment.clone();
-        self.environment = environment;
+        let previous: Rc<RefCell<Environment>> = self.environment.clone();
+        self.environment = Rc::new(RefCell::new(environment));
         for stmt in statements {
             match self.execute(stmt) {
                 Ok(_) => {}
@@ -384,11 +414,38 @@ impl Interpreter {
                     self.environment = previous;
                     return Err(InterpreterError {
                         msg: "Error executing Block".to_string()
-                    })
+                    });
                 }
             };
         }
         self.environment = previous;
-        Ok(LiteralValue::None)   
+        Ok(LiteralValue::None)
+    }
+
+    fn is_truthy(value: &LiteralValue) -> Result<bool, InterpreterError> {
+        match value {
+            LiteralValue::None => { Ok(false) }
+            LiteralValue::True => { Ok(true) }
+            LiteralValue::False => { Ok(false) }
+            LiteralValue::StringValue(str) => {
+                if str.len() > 0 {
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
+            LiteralValue::NumValue(num) => {
+                if num.clone() == 0. {
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
+            LiteralValue::IdentifierValue(_) => {
+                Err(InterpreterError {
+                    msg: "Tried to evaluate truthiness of identifier value".to_string()
+                })
+            }
+        }
     }
 }
