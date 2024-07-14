@@ -1,7 +1,14 @@
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
+use std::fmt::Formatter;
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Neg, Not, Sub};
+use std::rc::Rc;
+use crate::environment::Environment;
+use crate::ast::Stmt;
+use crate::lox::Lox;
+use crate::lox_callable::LoxCallable;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
@@ -11,7 +18,29 @@ pub enum LiteralValue {
     StringValue(String),
     NumValue(f64),
     IdentifierValue(String),
+    Function(FunctionEnum)
 }
+
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum FunctionEnum {
+    Native(NativeFunctions),
+    User(UserDefinedFunction)
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum NativeFunctions {
+    Clock
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct UserDefinedFunction {
+    pub closure: Rc<RefCell<Environment>>,
+    pub declaration: Rc<RefCell<Stmt>>, 
+}
+
+
+
 
 pub struct TokenError; // Error type for token errors, currently empty but can be extended later
 
@@ -24,6 +53,7 @@ impl fmt::Display for LiteralValue {
             LiteralValue::StringValue(s) => write!(f, "{s}"),
             LiteralValue::NumValue(x) => write!(f, "{x}"),
             LiteralValue::IdentifierValue(s) => write!(f, "{s}"),
+            LiteralValue::Function(fun)=> write!(f, "{:?}", fun)
         }
     }
 }
@@ -39,6 +69,7 @@ impl Neg for LiteralValue {
             LiteralValue::StringValue(_) => { Err(TokenError) }
             LiteralValue::NumValue(n) => { Ok(LiteralValue::NumValue(n)) }
             LiteralValue::IdentifierValue(_) => { Err(TokenError) }
+            LiteralValue::Function(_) => {Err(TokenError)}
         }
     }
 }
@@ -66,6 +97,7 @@ impl Not for LiteralValue {
                 }
             }
             LiteralValue::IdentifierValue(_)=>{Err(TokenError)}
+            LiteralValue::Function(_) => {Err(TokenError)}
         }
     }
 }
@@ -90,6 +122,7 @@ impl Add for LiteralValue {
                     }
                     LiteralValue::NumValue(_) => {Err(TokenError)}
                     LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+                    LiteralValue::Function(_) => {Err(TokenError)}
                 }
             }
             LiteralValue::NumValue(lhs_num) => {
@@ -102,9 +135,11 @@ impl Add for LiteralValue {
                         Ok(LiteralValue::NumValue(lhs_num+rhs_num))
                     }
                     LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+                    LiteralValue::Function(_) => {Err(TokenError)}
                 }
             }
             LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+            LiteralValue::Function(_) => {Err(TokenError)}
         }
 
     }
@@ -128,9 +163,11 @@ impl Sub for LiteralValue {
                         Ok(LiteralValue::NumValue(lhs_num-rhs_num))
                     }
                     LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+                    LiteralValue::Function(_) => {Err(TokenError)}
                 }
             }
             LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+            LiteralValue::Function(_) => {Err(TokenError)}
         }
     }
 }
@@ -153,6 +190,7 @@ impl Mul for LiteralValue {
                         Ok(LiteralValue::StringValue(lhs_str.repeat(rhs_num as usize)))
                     }
                     LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+                    LiteralValue::Function(_) => {Err(TokenError)}
                 }
             }
             LiteralValue::NumValue(lhs_num) => {
@@ -165,9 +203,11 @@ impl Mul for LiteralValue {
                         Ok(LiteralValue::NumValue(lhs_num*rhs_num))
                     }
                     LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+                    LiteralValue::Function(_) => {Err(TokenError)}
                 }
             }
             LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+            LiteralValue::Function(_) => {Err(TokenError)}
         }
     }
 }
@@ -191,9 +231,11 @@ impl Div for LiteralValue {
                         Ok(LiteralValue::NumValue(lhs_num / rhs_num))
                     }
                     LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+                    LiteralValue::Function(_) => {Err(TokenError)}
                 }
             }
             LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+            LiteralValue::Function(_) => {Err(TokenError)}
         }
     }
 }
@@ -228,6 +270,7 @@ impl BitAnd for LiteralValue {
                         }
                     }
                     LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+                    LiteralValue::Function(_) => {Err(TokenError)}
                 }
             }
             LiteralValue::False => {
@@ -254,6 +297,7 @@ impl BitAnd for LiteralValue {
                         }
                     }
                     LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+                    LiteralValue::Function(_) => {Err(TokenError)}
                 }
             }
             LiteralValue::StringValue(s) => {
@@ -271,6 +315,7 @@ impl BitAnd for LiteralValue {
                 }
             }
             LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+            LiteralValue::Function(_) => {Err(TokenError)}
         }
     }
 }
@@ -301,6 +346,7 @@ impl BitOr for LiteralValue {
                         }
                     }
                     LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+                    LiteralValue::Function(_) => {Err(TokenError)}
                 }
             }
             LiteralValue::False => {
@@ -323,6 +369,7 @@ impl BitOr for LiteralValue {
                         }
                     }
                     LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+                    LiteralValue::Function(_) => {Err(TokenError)}
                 }
             }
             LiteralValue::StringValue(s) => {
@@ -340,6 +387,7 @@ impl BitOr for LiteralValue {
                 }
             }
             LiteralValue::IdentifierValue(_) => {Err(TokenError)}
+            LiteralValue::Function(_) => {Err(TokenError)}
         }
     }
 }
@@ -370,9 +418,11 @@ impl PartialOrd for LiteralValue {
                         }
                     }
                     LiteralValue::IdentifierValue(_) => {None}
+                    LiteralValue::Function(_) => {None}
                 }
             }
             LiteralValue::IdentifierValue(_) => {None}
+            LiteralValue::Function(_) => {None}
         }
     }
 }
@@ -473,7 +523,7 @@ impl fmt::Display for TokenType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub(crate) token_type: TokenType,
     pub(crate) lexeme: String,

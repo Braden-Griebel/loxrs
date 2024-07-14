@@ -1,20 +1,25 @@
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::cmp::Ordering;
 use std::io;
 use std::io::Write;
+use std::ops::Deref;
 use std::rc::Rc;
+
 use crate::ast::{Expr, Stmt, Visitor};
-use crate::ast::Expr::Literal;
-use crate::token::{LiteralValue, Token, TokenType};
-use crate::environment::{Environment, EnvironmentError};
-use crate::parser::ParseError;
+use crate::environment::Environment;
+use crate::lox_callable::LoxCallable;
+use crate::token::{FunctionEnum, LiteralValue, TokenType, UserDefinedFunction};
+use crate::token::NativeFunctions::Clock;
 
 pub struct Interpreter {
     pub environment: Rc<RefCell<Environment>>,
+    pub globals: Rc<RefCell<Environment>>,
 }
 
 pub struct InterpreterError {
     pub(crate) msg: String,
+    pub(crate) returning: bool,
+    pub(crate) value: Option<LiteralValue>,
 }
 
 impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
@@ -26,7 +31,9 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                     None => { Ok(value) }
                     Some(err) => {
                         Err(InterpreterError {
-                            msg: err.msg
+                            msg: err.msg,
+                            returning: false,
+                            value: None,
                         })
                     }
                 }
@@ -41,7 +48,11 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                                 Ok(literal_value)
                             }
                             Err(_) => {
-                                Err(InterpreterError { msg: "Invalid Subtraction".to_string() })
+                                Err(InterpreterError {
+                                    msg: "Invalid Subtraction".to_string(),
+                                    returning: false,
+                                    value: None,
+                                })
                             }
                         }
                     }
@@ -51,7 +62,11 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                                 Ok(literal_value)
                             }
                             Err(_) => {
-                                Err(InterpreterError { msg: "Invalid Addition".to_string() })
+                                Err(InterpreterError {
+                                    msg: "Invalid Addition".to_string(),
+                                    returning: false,
+                                    value: None,
+                                })
                             }
                         }
                     }
@@ -61,7 +76,11 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                                 Ok(literal_value)
                             }
                             Err(_) => {
-                                Err(InterpreterError { msg: "Invalid Division".to_string() })
+                                Err(InterpreterError {
+                                    msg: "Invalid Division".to_string(),
+                                    returning: false,
+                                    value: None,
+                                })
                             }
                         }
                     }
@@ -71,7 +90,11 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                                 Ok(literal_value)
                             }
                             Err(_) => {
-                                Err(InterpreterError { msg: "".to_string() })
+                                Err(InterpreterError {
+                                    msg: "".to_string(),
+                                    returning: false,
+                                    value: None,
+                                })
                             }
                         }
                     }
@@ -80,7 +103,9 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                             None => {
                                 Err(
                                     InterpreterError {
-                                        msg: "Invalid Inequality Comparison".to_string()
+                                        msg: "Invalid Inequality Comparison".to_string(),
+                                        returning: false,
+                                        value: None,
                                     }
                                 )
                             }
@@ -104,7 +129,9 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                             None => {
                                 Err(
                                     InterpreterError {
-                                        msg: "Invalid Equality Comparison".to_string()
+                                        msg: "Invalid Equality Comparison".to_string(),
+                                        returning: false,
+                                        value: None,
                                     }
                                 )
                             }
@@ -128,7 +155,9 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                             None => {
                                 Err(
                                     InterpreterError {
-                                        msg: "Invalid Greater Comparison".to_string()
+                                        msg: "Invalid Greater Comparison".to_string(),
+                                        returning: false,
+                                        value: None,
                                     }
                                 )
                             }
@@ -152,7 +181,9 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                             None => {
                                 Err(
                                     InterpreterError {
-                                        msg: "Invalid Greater/Equal Comparison".to_string()
+                                        msg: "Invalid Greater/Equal Comparison".to_string(),
+                                        returning: false,
+                                        value: None,
                                     }
                                 )
                             }
@@ -176,7 +207,9 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                             None => {
                                 Err(
                                     InterpreterError {
-                                        msg: "Invalid Less Comparison".to_string()
+                                        msg: "Invalid Less Comparison".to_string(),
+                                        returning: false,
+                                        value: None,
                                     }
                                 )
                             }
@@ -200,7 +233,9 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                             None => {
                                 Err(
                                     InterpreterError {
-                                        msg: "Invalid Less/Equal Comparison".to_string()
+                                        msg: "Invalid Less/Equal Comparison".to_string(),
+                                        returning: false,
+                                        value: None,
                                     }
                                 )
                             }
@@ -224,7 +259,9 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                             Ok(value) => { Ok(value) }
                             Err(_) => {
                                 Err(InterpreterError {
-                                    msg: "Invalid AND Operation".to_string()
+                                    msg: "Invalid AND Operation".to_string(),
+                                    returning: false,
+                                    value: None,
                                 })
                             }
                         }
@@ -234,18 +271,57 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                             Ok(value) => { Ok(value) }
                             Err(_) => {
                                 Err(InterpreterError {
-                                    msg: "Invalid OR Operation".to_string()
+                                    msg: "Invalid OR Operation".to_string(),
+                                    returning: false,
+                                    value: None,
                                 })
                             }
                         }
                     }
                     _ => {
-                        Err(InterpreterError { msg: "Invalid Binary Operator".to_string() })
+                        Err(InterpreterError {
+                            msg: "Invalid Binary Operator".to_string(),
+                            returning: false,
+                            value: None,
+                        })
                     }
                 }
             }
-            Expr::Call { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
-            Expr::Get { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Expr::Call { callee, paren, arguments } => {
+                let callee: LiteralValue = self.evaluate(callee)?;
+
+                let mut args: Vec<LiteralValue> = Vec::new();
+                for argument in arguments {
+                    args.push(self.evaluate(argument)?);
+                }
+
+                let function = match callee {
+                    LiteralValue::Function(fun) => {
+                        if args.len() as u8 != fun.arity()? {
+                            return Err(InterpreterError {
+                                msg: "Incorrect number of arguments".to_string(),
+                                returning: false,
+                                value: None,
+                            });
+                        }
+                        fun.call(self, args)
+                    }
+                    _ => Err(InterpreterError {
+                        msg: "Tried to call non-callable".to_string(),
+                        returning: false,
+                        value: None,
+                    })
+                };
+
+                function
+            }
+            Expr::Get { .. } => {
+                Err(InterpreterError {
+                    msg: "Not Implemented Yet".to_string(),
+                    returning: false,
+                    value: None,
+                })
+            }
             Expr::Grouping { expression } => {
                 self.evaluate(expression)
             }
@@ -266,9 +342,27 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                 }
                 self.evaluate(right)
             }
-            Expr::Set { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
-            Expr::Super { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
-            Expr::This { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Expr::Set { .. } => {
+                Err(InterpreterError {
+                    msg: "Not Implemented Yet".to_string(),
+                    returning: false,
+                    value: None,
+                })
+            }
+            Expr::Super { .. } => {
+                Err(InterpreterError {
+                    msg: "Not Implemented Yet".to_string(),
+                    returning: false,
+                    value: None,
+                })
+            }
+            Expr::This { .. } => {
+                Err(InterpreterError {
+                    msg: "Not Implemented Yet".to_string(),
+                    returning: false,
+                    value: None,
+                })
+            }
             Expr::Unary { operator, right } => {
                 let rhs = self.evaluate(right);
                 match rhs {
@@ -281,7 +375,9 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                                     }
                                     Err(_) => {
                                         Err(InterpreterError {
-                                            msg: "Invalid Negative Operation".to_string()
+                                            msg: "Invalid Negative Operation".to_string(),
+                                            returning: false,
+                                            value: None,
                                         })
                                     }
                                 }
@@ -293,20 +389,26 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                                     }
                                     Err(_) => {
                                         Err(InterpreterError {
-                                            msg: "Invalid Not Operation".to_string()
+                                            msg: "Invalid Not Operation".to_string(),
+                                            returning: false,
+                                            value: None,
                                         })
                                     }
                                 }
                             }
                             _ => Err(InterpreterError {
-                                msg: "Invalid Unary Operator".to_string()
+                                msg: "Invalid Unary Operator".to_string(),
+                                returning: false,
+                                value: None,
                             })
                         }
                     }
                     Err(err) => {
                         Err(InterpreterError {
                             msg:
-                            err.msg
+                            err.msg,
+                            returning: false,
+                            value: None,
                         })
                     }
                 }
@@ -316,7 +418,9 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                     Ok(val) => { Ok(val) }
                     Err(_) => {
                         Err(InterpreterError {
-                            msg: format!("{} not defined", name.lexeme)
+                            msg: format!("{} not defined", name.lexeme),
+                            returning: false,
+                            value: None,
                         })
                     }
                 }
@@ -327,14 +431,28 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
     fn visit_stmt(&mut self, stmt: &mut Stmt) -> Result<LiteralValue, InterpreterError> {
         match stmt {
             Stmt::Block { statements } => {
-                let _ =self.execute_block(statements, Environment::new_local(self.environment.clone()))?;
+                let _ = self.execute_block(statements, Rc::new(RefCell::new(Environment::new_local(self.environment.clone()))))?;
                 return Ok(LiteralValue::None);
             }
-            Stmt::Class { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Stmt::Class { .. } => {
+                Err(InterpreterError {
+                    msg: "Not Implemented Yet".to_string(),
+                    returning: false,
+                    value: None,
+                })
+            }
             Stmt::Expression { expression } => {
                 self.evaluate(expression)
             }
-            Stmt::Function { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Stmt::Function { name, .. } => {
+                let func_name: String = name.lexeme.clone();
+                let new_fun = LiteralValue::Function(FunctionEnum::User(UserDefinedFunction {
+                    closure: Rc::new(RefCell::new(Environment::new_local(self.environment.clone()))),
+                    declaration: Rc::new(RefCell::new(stmt.clone())), //This is really hacky, and might desync state
+                }));
+                self.environment.borrow_mut().define(func_name, new_fun);
+                Ok(LiteralValue::None)
+            }
             Stmt::If { condition, then_branch, else_branch } => {
                 if Interpreter::is_truthy(&self.evaluate(condition)?)? {
                     self.execute(then_branch)
@@ -350,11 +468,30 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                 println!("{}", value);
                 match io::stdout().flush() {
                     Ok(_) => {}
-                    Err(_) => { return Err(InterpreterError { msg: "Error Flushing StdOut in Print Statement".to_string() }) }
+                    Err(_) => {
+                        return Err(InterpreterError {
+                            msg: "Error Flushing StdOut in Print Statement".to_string(),
+                            returning: false,
+                            value: None,
+                        })
+                    }
                 };
                 return Ok(LiteralValue::None);
             }
-            Stmt::Return { .. } => { Err(InterpreterError { msg: "Not Implemented Yet".to_string() }) }
+            Stmt::Return { keyword, value } => {
+                let new_value = match value {
+                    None => { None }
+                    Some(val) => { Some(self.evaluate(val)?) }
+                };
+
+                return Err(
+                    InterpreterError {
+                        msg: "".to_string(),
+                        returning: true,
+                        value: new_value,
+                    }
+                );
+            }
             Stmt::Variable { name, initializer } => {
                 match initializer {
                     None => {
@@ -369,10 +506,10 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
                 }
             }
             Stmt::While { condition, body } => {
-                while Interpreter::is_truthy(&self.evaluate(condition)?)?{
+                while Interpreter::is_truthy(&self.evaluate(condition)?)? {
                     let _ = self.execute(body)?;
                 }
-                return Ok(LiteralValue::None)
+                return Ok(LiteralValue::None);
             }
         }
     }
@@ -380,8 +517,15 @@ impl Visitor<Result<LiteralValue, InterpreterError>> for Interpreter {
 
 impl Interpreter {
     pub fn new() -> Interpreter {
+        let globals = Rc::new(RefCell::new(Environment::new_global()));
+
+        globals.borrow_mut().define("clock".to_string(),
+                                    LiteralValue::Function(FunctionEnum::Native(Clock)));
+
+        let environment = globals.clone();
         Interpreter {
-            environment: Rc::new(RefCell::new(Environment::new_global()))
+            environment,
+            globals,
         }
     }
 
@@ -394,7 +538,13 @@ impl Interpreter {
         for statement in statements.iter_mut() {
             last_val = match self.execute(statement) {
                 Ok(value) => { value }
-                Err(_) => { return Err(InterpreterError { msg: "Error Executing Statemment".to_string() }) }
+                Err(_) => {
+                    return Err(InterpreterError {
+                        msg: "Error Executing Statemment".to_string(),
+                        returning: false,
+                        value: None,
+                    })
+                }
             };
         }
         return Ok(last_val);
@@ -404,16 +554,23 @@ impl Interpreter {
         self.visit_stmt(stmt)
     }
 
-    fn execute_block(&mut self, statements: &mut Vec<Box<Stmt>>, environment: Environment) -> Result<LiteralValue, InterpreterError> {
+    pub(crate) fn execute_block(&mut self, statements: &mut Vec<Box<Stmt>>, environment: Rc<RefCell<Environment>>) -> Result<LiteralValue, InterpreterError> {
         let previous: Rc<RefCell<Environment>> = self.environment.clone();
-        self.environment = Rc::new(RefCell::new(environment));
+        self.environment = environment;
+        let mut last_val: LiteralValue;
         for stmt in statements {
-            match self.execute(stmt) {
-                Ok(_) => {}
-                Err(_) => {
+            last_val = match self.execute(stmt) {
+                Ok(value) => { value }
+                Err(err) => {
+                    if err.returning {
+                        self.environment = previous;
+                        return Err(err);
+                    }
                     self.environment = previous;
                     return Err(InterpreterError {
-                        msg: "Error executing Block".to_string()
+                        msg: "Error executing Block".to_string(),
+                        returning: false,
+                        value: None,
                     });
                 }
             };
@@ -443,8 +600,32 @@ impl Interpreter {
             }
             LiteralValue::IdentifierValue(_) => {
                 Err(InterpreterError {
-                    msg: "Tried to evaluate truthiness of identifier value".to_string()
+                    msg: "Tried to evaluate truthiness of identifier value".to_string(),
+                    returning: false,
+                    value: None,
                 })
+            }
+            LiteralValue::Function(_) => {
+                Err(InterpreterError {
+                    msg: "Tried to evaluate truthiness of callable".to_string(),
+                    returning: false,
+                    value: None,
+                })
+            }
+        }
+    }
+
+    fn unwrap_interpreter_result(result: Result<LiteralValue, InterpreterError>) -> Result<LiteralValue, InterpreterError> {
+        match result {
+            Ok(val) => { Ok(val) }
+            Err(error) => {
+                if error.returning {
+                    return match error.value.clone() {
+                        None => { Ok(LiteralValue::None) }
+                        Some(v) => { Ok(v) }
+                    }
+                }
+                Err(error)
             }
         }
     }

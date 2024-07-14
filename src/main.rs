@@ -11,6 +11,7 @@ mod token;
 mod parser;
 mod interpreter;
 mod environment;
+mod lox_callable;
 
 fn main(){
     let args: Vec<String> = env::args().collect();

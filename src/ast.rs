@@ -1,6 +1,6 @@
 use crate::token::{LiteralValue, Token};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expr {
     Assign {
         name: Token,
@@ -129,7 +129,7 @@ impl Expr {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
     Block {
         statements: Vec<Box<Stmt>>
@@ -157,7 +157,7 @@ pub enum Stmt {
     },
     Return {
         keyword: Token,
-        value: Box<Expr>,
+        value: Option<Box<Expr>>,
     },
     Variable {
         name: Token,
@@ -217,11 +217,22 @@ impl Stmt {
             expression: Box::new(expression)
         }
     }
-    pub fn new_return(keyword: Token, value: Expr) -> Stmt {
-        Stmt::Return {
-            keyword,
-            value: Box::new(value),
+    pub fn new_return(keyword: Token, value: Option<Expr>) -> Stmt {
+        match value {
+            None => {
+                Stmt::Return {
+                    keyword,
+                    value: None,
+                }
+            }
+            Some(val) => {
+                Stmt::Return {
+                    keyword,
+                    value: Some(Box::new(val)),
+                }
+            }
         }
+        
     }
     pub fn new_variable_initialized(name: Token, initializer: Expr) -> Stmt {
         Stmt::Variable {

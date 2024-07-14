@@ -1,4 +1,5 @@
 use crate::ast::{Expr, Stmt};
+use crate::interpreter::InterpreterError;
 use crate::lox::Lox;
 use crate::token::{LiteralValue, Token, TokenType};
 
@@ -24,6 +25,7 @@ impl Parser {
     }
 
     fn declaration(&mut self) -> Result<Stmt, ParseError> {
+        if self.match_token(vec![TokenType::Fun]) {return self.function("function");}
         if self.match_token(vec![TokenType::Var]) {
             match self.var_declaration() {
                 Ok(stmt) => { Ok(stmt) }
@@ -36,6 +38,31 @@ impl Parser {
             return self.statement();
         }
     }
+    
+    fn function(&mut self, kind: &str)->Result<Stmt, ParseError>{
+        let name:Token = self.consume(TokenType::Identifier, &format!("Expect {kind} name."));
+        self.consume(TokenType::LeftParen, &format!("Expect '(' after {kind} name."));
+        let mut  parameters: Vec<Token> = Vec::new();
+        if !self.check(TokenType::RightParen) {
+            loop {
+                if parameters.len()>255 {
+                    return Err(ParseError{
+                        token: self.peek(),
+                        message: "Can't have more than 255 parameters.".to_string()
+                    })
+                }
+                
+                parameters.push(self.consume(TokenType::Identifier, "Expect parameter name."));
+                
+                if !self.match_token(vec![TokenType::Comma]){break;}
+            }
+        }
+        self.consume(TokenType::RightParen, "Expect ')' after parameters.");
+        
+        self.consume(TokenType::LeftBrace, &format!("Expect '{{' before {kind} body."));
+        let body: Vec<Stmt> = self.block()?;
+        return Ok(Stmt::new_function(name, parameters, body))
+    }
 
     fn expression(&mut self) -> Result<Expr, ParseError> {
         return Ok(self.assignment()?);
@@ -45,6 +72,7 @@ impl Parser {
         if self.match_token(vec![TokenType::For]) { return self.for_statement();}
         if self.match_token(vec![TokenType::If]) { return self.if_statement(); }
         if self.match_token(vec![TokenType::Print]) { return self.print_statement(); }
+        if self.match_token(vec![TokenType::Return]) {return self.return_statement(); }
         if self.match_token(vec![TokenType::While]) {return self.while_statement();}
         if self.match_token(vec![TokenType::LeftBrace]) {
             return Ok(Stmt::new_block(self.block()?));
@@ -68,6 +96,20 @@ impl Parser {
             }
         }
         Ok(expr)
+    }
+    
+    fn return_statement(&mut self)->Result<Stmt, ParseError>{
+        let keyword: Token = self.previous();
+        let mut value: Option<Expr> = None;
+        if !self.check(TokenType::SemiColon) {
+            value = Some(self.expression()?);
+        }
+        
+        self.consume(TokenType::SemiColon, "Expect ';' after return value.");
+        match value {
+            None => {Ok(Stmt::new_return(keyword, None))}
+            Some(expr) => {Ok(Stmt::new_return(keyword, Some(expr)))}
+        }
     }
     
     fn while_statement(&mut self)->Result<Stmt, ParseError>{
@@ -247,7 +289,40 @@ impl Parser {
             let right: Expr = self.unary()?;
             return Ok(Expr::new_unary(operator, right));
         }
-        return Ok(self.primary()?);
+        return Ok(self.call()?);
+    }
+    
+    fn call(&mut self)->Result<Expr, ParseError>{
+        let mut expr = self.primary()?;
+        
+        loop {
+            if self.match_token(vec![TokenType::LeftParen]){
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+        return Ok(expr)
+    }
+    
+    fn finish_call(&mut self, callee: Expr)->Result<Expr, ParseError>{
+        let mut arguments: Vec<Expr> = Vec::new();
+        if !self.check(TokenType::RightParen) {
+            loop {
+                if arguments.len() >= 255 {
+                    return Err(ParseError{token: self.peek(), 
+                        message: "Can't have more than 255 arguments.".to_string()});
+                }
+                arguments.push(self.expression()?);
+                if !self.match_token(vec![TokenType::Comma]){
+                    break;
+                }
+            }
+        }
+        
+        let paren: Token = self.consume(TokenType::RightParen, "Expect ')' after arguments.");
+        
+        return Ok(Expr::new_call(callee, paren, arguments))
     }
 
     fn primary(&mut self) -> Result<Expr, ParseError> {
