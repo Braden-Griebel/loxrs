@@ -178,7 +178,7 @@ impl Lexer{
     }
 
     fn peek(&self)->char{
-        if self.at_end {
+        if self.is_at_end() {
             return '\0';
         }
         return self.source[self.current];
